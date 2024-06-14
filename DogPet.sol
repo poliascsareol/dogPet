@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract DogPet is ERC20, Ownable {
+contract DogPet is ERC20, Ownable, ReentrancyGuard {
     IUniswapV2Router02 private router;
     address private pair;
 
@@ -86,7 +87,6 @@ contract DogPet is ERC20, Ownable {
             !_isAddLiquidityAddress[from] && !_isAddLiquidityAddress[to] &&
             (pair == from || pair == to) && from != destroyAddress
         ) {
-
             uint256 lpBalance = balanceOf(pair);
             uint256 maxAmount = lpBalance / 2;
 
@@ -100,7 +100,7 @@ contract DogPet is ERC20, Ownable {
                 // and allow foundationAddress to balance the price. After balancing, trading can resume.
                 // This cooldown trading balance mechanism is explained in the whitepaper and has been approved by community vote.
                 require(block.timestamp >= sellTime || _isAddLiquidityAddress[from] || sellResume, "Sell After balancing, trading can resume.");
-                if (sellResume == false && _isAddLiquidityAddress[from]) {
+                if (_isAddLiquidityAddress[from]) {
                     sellResume = true;
                 }
                 _handleSell(from, to, amount);
@@ -122,15 +122,6 @@ contract DogPet is ERC20, Ownable {
         _swapAndTransferFees(from, amount, true);
         uint256 sellAmount = amount * (100 - SELL_FEE) / 100;
         super._transfer(from, to, sellAmount);
-
-        if (block.timestamp >= lastRecordedTime) {
-            uint256 lpAmount = balanceOf(pair);
-            if (lpAmount >= 21000000 ether) {
-                destroyTotal = lpAmount * 5 / 1000;
-                lastRecordedTime = block.timestamp + 1 hours;
-                _destroyTokens();
-            }
-        }
     }
 
     function _handleBuy(address from, address to, uint256 amount) private {
@@ -139,7 +130,7 @@ contract DogPet is ERC20, Ownable {
         super._transfer(from, to, buyAmount);
     }
 
-    function _swapAndTransferFees(address from, uint256 amount, bool isSell) private {
+    function _swapAndTransferFees(address from, uint256 amount, bool isSell) private nonReentrant {
         uint256 fee = amount * FOUNDATION_FEE / 100;
         lastFoundationAmount += fee;
         lastMarketAmount += fee;
@@ -153,16 +144,24 @@ contract DogPet is ERC20, Ownable {
             lastFoundationAmount = 0;
             lastMarketAmount = 0;
         }
+        _destroyTokens();
     }
 
     function _destroyTokens() private {
-        sellResume == false;
-        if (destroyTotal > 0) {
-            sellTime = block.timestamp + 10 minutes;
-            super._transfer(pair, burnAddress, destroyTotal);
-            IUniswapV2Pair(pair).sync();
-            destroyTotal = 0;
-            emit TokensDestroyed(destroyTotal);
+        sellResume = false;
+        if (block.timestamp >= lastRecordedTime) {
+            uint256 lpAmount = balanceOf(pair);
+            if (lpAmount >= 21000000 ether) {
+                destroyTotal = lpAmount * 5 / 1000;
+                lastRecordedTime = block.timestamp + 1 hours;
+                if (destroyTotal > 0) {
+                    sellTime = block.timestamp + 10 minutes;
+                    super._transfer(pair, burnAddress, destroyTotal);
+                    IUniswapV2Pair(pair).sync();
+                    destroyTotal = 0;
+                    emit TokensDestroyed(destroyTotal);
+                }
+            }
         }
     }
 
