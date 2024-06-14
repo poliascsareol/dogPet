@@ -16,7 +16,16 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
 
     address public destroyAddress = 0xe7dB3e0A94306f6668219264FcaA900763251174;
     address public dividendAddress = 0xa7365Fb3eE006d20457EeBfd34746928F0BD081b;
-    address public foundationAddress = 0xB6EC9AE10a94d40a1270E2F9F136cA0804CE8462;
+
+
+    //Multi-sig wallet address: 0x7EE337730EeBfbFA918e0070ebFD8595e3579d9d
+    //Signer 1: 0xB6EC9AE10a94d40a1270E2F9F136cA0804CE8462
+    //Signer 2: 0xe509Eb736251C36d413C1ff2aF0f848A67B0b6d8
+    //Signer 3: 0x66d6C29D159bAE098a96a85A8A99da93d6ef5BfE
+    //Signer 4: 0x0A210631DD7f2EA689b2c38C4D33D21f55C86c9c
+    //Signer 5: 0x8E20735d0a7958183673c53e3412D4b4c5011942
+
+    address public foundationAddress = 0x7EE337730EeBfbFA918e0070ebFD8595e3579d9d;
     address public marketAddress = 0x0C16Cae23a54934f3E5373Ff837958Ae9a3a7516;
     address public gameMitAddress = 0x4B92F75d4487978b7fEB78C4b72E4d1Ca6ED97EB;
     address public forPinkSaleAddress = 0x7fCD0c72B846bE906552DceCD51C60a0396E093e;
