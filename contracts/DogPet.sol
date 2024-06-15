@@ -7,16 +7,12 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-
+import "./utils/Constants.sol";
 contract DogPet is ERC20, Ownable, ReentrancyGuard {
     IUniswapV2Router02 private router;
     address private pair;
 
     mapping(address => bool) private _isAddLiquidityAddress;
-
-    address public destroyAddress = 0xe7dB3e0A94306f6668219264FcaA900763251174;
-    address public dividendAddress = 0xa7365Fb3eE006d20457EeBfd34746928F0BD081b;
-
 
     //Multi-sig wallet address: 0x7EE337730EeBfbFA918e0070ebFD8595e3579d9d
     //Signer 1: 0xB6EC9AE10a94d40a1270E2F9F136cA0804CE8462
@@ -24,8 +20,10 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
     //Signer 3: 0x66d6C29D159bAE098a96a85A8A99da93d6ef5BfE
     //Signer 4: 0x0A210631DD7f2EA689b2c38C4D33D21f55C86c9c
     //Signer 5: 0x8E20735d0a7958183673c53e3412D4b4c5011942
+    address public destroyAddress = 0x7EE337730EeBfbFA918e0070ebFD8595e3579d9d;
+    address public dividendAddress = 0xa7365Fb3eE006d20457EeBfd34746928F0BD081b;
 
-    address public foundationAddress = 0x7EE337730EeBfbFA918e0070ebFD8595e3579d9d;
+    address public foundationAddress = 0xB6EC9AE10a94d40a1270E2F9F136cA0804CE8462;
     address public marketAddress = 0x0C16Cae23a54934f3E5373Ff837958Ae9a3a7516;
     address public gameMitAddress = 0x4B92F75d4487978b7fEB78C4b72E4d1Ca6ED97EB;
     address public forPinkSaleAddress = 0x7fCD0c72B846bE906552DceCD51C60a0396E093e;
@@ -37,16 +35,11 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
     uint256 public sellTime;
     uint256 public lastRecordedTime;
 
-    address public routerAddress = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
-    address public zeroAddress = 0x0000000000000000000000000000000000000000;
-    address public burnAddress = 0x000000000000000000000000000000000000dEaD;
-    address public usdtAddress = 0x55d398326f99059fF775485246999027B3197955;
 
     uint256 public constant SELL_FEE = 6; // 6%
     uint256 public constant BUY_FEE = 6; // 6%
-    uint256 public constant FOUNDATION_FEE = 2; // 2%
-    uint256 public constant MARKET_FEE = 2; // 2%
-    uint256 public constant SLIPPAGE = 80; // 80%
+    uint256 public constant _FEE = 2; // 2%
+    uint256 public constant SLIPPAGE = 90; // 80%
 
     bool public sellResume = true;
 
@@ -57,15 +50,14 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
     constructor() ERC20("DOGPET", "DP") {
         uint256 totalSupply = 21000000000 ether;
 
-        // Mint 80% of the total supply to the foundationAddress.
-        // These tokens will be used for community private placements and will not be largely held before the market launch.
-        // Any tokens not sold in the private placement will be sent to the burn address.
-        _mint(foundationAddress, totalSupply * 80 / 100);
+
+        _mint(Constants.burnAddress, totalSupply * 75 / 100);
+        _mint(foundationAddress, totalSupply * 5 / 100);
         _mint(gameMitAddress, totalSupply * 10 / 100);
         _mint(forPinkSaleAddress, totalSupply * 10 / 100);
 
-        router = IUniswapV2Router02(routerAddress);
-        pair = IUniswapV2Factory(router.factory()).createPair(address(this), usdtAddress);
+        router = IUniswapV2Router02(Constants.routerAddress);
+        pair = IUniswapV2Factory(router.factory()).createPair(address(this), Constants.usdtAddress);
         _isAddLiquidityAddress[foundationAddress] = true;
         _isAddLiquidityAddress[destroyAddress] = true;
         _isAddLiquidityAddress[dividendAddress] = true;
@@ -140,7 +132,7 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
     }
 
     function _swapAndTransferFees(address from, uint256 amount, bool isSell) private nonReentrant {
-        uint256 fee = amount * FOUNDATION_FEE / 100;
+        uint256 fee = amount * _FEE / 100;
         lastFoundationAmount += fee;
         lastMarketAmount += fee;
 
@@ -153,8 +145,9 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
             lastFoundationAmount = 0;
             lastMarketAmount = 0;
         }
-        _destroyTokens();
+
     }
+
 
     function _destroyTokens() private {
         sellResume = false;
@@ -165,7 +158,7 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
                 lastRecordedTime = block.timestamp + 1 hours;
                 if (destroyTotal > 0) {
                     sellTime = block.timestamp + 10 minutes;
-                    super._transfer(pair, burnAddress, destroyTotal);
+                    super._transfer(pair, Constants.burnAddress, destroyTotal);
                     IUniswapV2Pair(pair).sync();
                     destroyTotal = 0;
                     emit TokensDestroyed(destroyTotal);
@@ -178,10 +171,10 @@ contract DogPet is ERC20, Ownable, ReentrancyGuard {
         if (amount > 0) {
             address[] memory path = new address[](2);
             path[0] = address(this);
-            path[1] = usdtAddress;
+            path[1] = Constants.usdtAddress;
 
             uint256[] memory amountsOut = router.getAmountsOut(amount, path);
-            uint256 minOutputAmount = amountsOut[1] * SLIPPAGE / 100; // 80% of the expected output amount
+            uint256 minOutputAmount = amountsOut[1] * SLIPPAGE / 100; // 90% of the expected output amount
             _approve(address(this), address(router), amount);
             router.swapExactTokensForTokensSupportingFeeOnTransferTokens(amount, minOutputAmount, path, to, block.timestamp);
             emit SwapAndSendTo(to, amount);
